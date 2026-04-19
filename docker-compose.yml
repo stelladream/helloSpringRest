@@ -1,0 +1,105 @@
+# =====================================================================
+# Docker Compose - 개발 환경 구성
+# =====================================================================
+# 이 파일 하나로 MySQL + Tomcat 환경을 한 번에 구성합니다.
+#
+# 실행 명령:
+#   mvn clean package          (1. WAR 빌드)
+#   docker-compose up -d       (2. 컨테이너 시작)
+#   docker-compose logs -f     (3. 로그 확인)
+#   docker-compose down        (4. 컨테이너 중지 및 제거)
+#
+# [Docker 네트워크]
+# 같은 Compose 파일의 서비스들은 자동으로 같은 네트워크에 속합니다.
+# 서비스 이름(mysql, tomcat)이 DNS 호스트명으로 사용됩니다.
+# → DbConfig.java에서 jdbc:mysql://mysql:3306/... 으로 연결
+# =====================================================================
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────
+  # MySQL 9.x 서비스
+  # ───────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:9.1
+    container_name: spring-mvc-mysql
+
+    # 컨테이너 재시작 정책: Docker 재시작 시 자동으로 MySQL도 시작
+    restart: unless-stopped
+
+    environment:
+      # MySQL root 계정 비밀번호
+      MYSQL_ROOT_PASSWORD: rootpass
+
+      # init.sql에서 CREATE DATABASE를 직접 처리하므로
+      # MYSQL_DATABASE는 지정하지 않아도 됩니다.
+      # (init.sql에서 productdb 생성 및 appuser 권한 설정)
+
+    ports:
+      # 호스트포트:컨테이너포트
+      # 호스트(개발 PC)에서 MySQL Workbench 등으로 직접 접속 가능
+      # 호스트 3306 포트를 컨테이너 3306 포트로 직접 연결
+      - "3306:3306"
+
+    volumes:
+      # 1. 데이터 영속성: 프로젝트 폴더 안의 mysql-data/ 디렉터리에 DB 파일이 저장됩니다.
+      #    컨테이너를 삭제해도 이 폴더가 남아있으면 데이터가 보존됩니다.
+      #    탐색기(또는 ls)로 직접 확인할 수 있습니다.
+      #    형식: 호스트경로:컨테이너경로
+      - ./mysql-data:/var/lib/mysql
+
+      # 2. 초기화 스크립트: 볼륨이 비어있을 때(최초 실행 시) 자동으로 실행됩니다.
+      #    /docker-entrypoint-initdb.d/ 폴더의 .sql 파일이 순서대로 실행됩니다.
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    # MySQL 헬스체크: Tomcat이 시작되기 전 MySQL이 준비될 때까지 대기
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s    # 10초마다 체크
+      timeout: 5s      # 5초 내 응답 없으면 실패
+      retries: 5       # 5회 실패 시 unhealthy
+      start_period: 90s # 컨테이너 시작 후 90초간은 헬스체크 결과 무시
+
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --explicit-defaults-for-timestamp=1
+
+  # ───────────────────────────────────────────────────────────────────
+  # Apache Tomcat 11.x 서비스
+  # ───────────────────────────────────────────────────────────────────
+  # Tomcat 11.x: Jakarta EE 11 / Servlet 6.1 스펙 구현
+  # Spring 7.x는 Servlet 6.1+ 를 요구하므로 Tomcat 11.x 사용 필수
+  # (Tomcat 10.x는 Servlet 6.0 → Spring 7과 호환 불가)
+  tomcat:
+    image: tomcat:11.0-jdk21
+    container_name: spring-mvc-tomcat
+
+    restart: unless-stopped
+
+    # MySQL이 healthy 상태가 된 후에 Tomcat을 시작합니다.
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    ports:
+      # 8080: 웹 애플리케이션 접속 포트
+      # 브라우저에서 http://localhost:8080 으로 접속
+      - "8080:8080"
+
+    volumes:
+      # WAR 파일을 Tomcat의 webapps 디렉터리에 마운트합니다.
+      # mvn clean package 후 생성된 ROOT.war를 Tomcat이 자동 배포합니다.
+      # ROOT.war → ROOT 컨텍스트 → http://localhost:8080/ 로 접속
+      - ./target/ROOT.war:/usr/local/tomcat/webapps/ROOT.war:ro
+
+    environment:
+      # Java 옵션: 메모리, 인코딩 설정
+      JAVA_OPTS: >-
+        -Xmx512m
+        -Xms256m
+        -Dfile.encoding=UTF-8
+        -Duser.timezone=Asia/Seoul
+
+# 데이터 삭제 방법:
+#   rm -rf ./mysql-data    (폴더째 삭제하면 DB 초기화)
