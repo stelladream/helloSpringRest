@@ -109,20 +109,13 @@ public class ProductController {
      * 400 Bad Request : 입력값 검증 실패
      * 404 Not Found : 해당 ID의 상품이 없음
      */
+// ProductController.java
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
             @PathVariable Long id,
             @Valid @RequestBody ProductForm productForm) {
 
-        Product product = productService.getProductById(id)
-                .orElseThrow(() -> new ProductNotFoundException(id));
-
-        product.setName(productForm.getName());
-        product.setCategory(productService.resolveCategory(productForm.getCategory()));
-        product.setPrice(productForm.getPrice());
-        product.setDescription(productForm.getDescription());
-
-        Product updatedProduct = productService.updateProduct(product);
+        Product updatedProduct = productService.updateProduct(id, productForm);
 
         return ResponseEntity.ok(
                 ApiResponse.success("상품이 수정되었습니다.", ProductResponse.from(updatedProduct)));

@@ -1,7 +1,9 @@
 package kr.ac.hansung.cse.service;
 
+import kr.ac.hansung.cse.exception.ProductNotFoundException;
 import kr.ac.hansung.cse.model.Category;
 import kr.ac.hansung.cse.model.Product;
+import kr.ac.hansung.cse.model.ProductForm;
 import kr.ac.hansung.cse.repository.CategoryRepository;
 import kr.ac.hansung.cse.repository.ProductRepository;
 import org.springframework.stereotype.Service;
@@ -118,12 +120,19 @@ public class ProductService {
      *     테스트 코드에서도 비즈니스 규칙이 항상 보장됩니다.
      *   - 서비스는 "어떤 클라이언트(웹/API/배치 등)가 호출해도" 유효성을 보장해야 합니다.
      */
+    // ProductService.java
     @Transactional
-    public Product updateProduct(Product product) {
-        if (product.getPrice() != null && product.getPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("상품 가격은 0 이상이어야 합니다.");
-        }
+    public Product updateProduct(Long id, ProductForm productForm) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+
+        product.setName(productForm.getName());
+        product.setCategory(resolveCategory(productForm.getCategory())); // 같은 트랜잭션 안
+        product.setPrice(productForm.getPrice());
+        product.setDescription(productForm.getDescription());
+
         return productRepository.update(product);
+        // 트랜잭션 종료 전에 category가 이미 초기화된 상태
     }
 
     /**

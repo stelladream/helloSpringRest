@@ -330,15 +330,11 @@ class ProductApiControllerTest {
             ProductForm form = buildForm("노트북 Pro", "전자제품",
                     new BigDecimal("2000000"), "업그레이드된 노트북");
 
-            Product existingProduct = buildProduct(1L, "노트북", "전자제품",
-                    new BigDecimal("1500000"), "기존 설명");
             Product updatedProduct = buildProduct(1L, "노트북 Pro", "전자제품",
                     new BigDecimal("2000000"), "업그레이드된 노트북");
 
-            when(productService.getProductById(1L)).thenReturn(Optional.of(existingProduct));
-            when(productService.resolveCategory("전자제품"))
-                    .thenReturn(new Category("전자제품"));
-            when(productService.updateProduct(any(Product.class))).thenReturn(updatedProduct);
+            when(productService.updateProduct(eq(1L), any(ProductForm.class)))
+                    .thenReturn(updatedProduct);
 
             // when & then
             mockMvc.perform(put("/api/products/1")
@@ -359,7 +355,9 @@ class ProductApiControllerTest {
             // given
             ProductForm form = buildForm("노트북", null,
                     new BigDecimal("1000000"), "설명");
-            when(productService.getProductById(999L)).thenReturn(Optional.empty());
+
+            when(productService.updateProduct(eq(999L), any(ProductForm.class)))
+                    .thenThrow(new ProductNotFoundException(999L));
 
             // when & then
             mockMvc.perform(put("/api/products/999")
