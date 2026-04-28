@@ -49,7 +49,7 @@ public class ProductController {
     // ─────────────────────────────────────────────────────────────────
 
     /**
-     * 200 OK: 상품 목록 반환 (상품이 없으면 빈 배열)
+     * 200 OK: 상품 목록 반환 (상품이 없으면 빈 배열), List<Product> → List<ProductResponse>
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProductResponse>>> listProducts() {

@@ -17,7 +17,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -80,15 +79,16 @@ class ProductApiControllerTest {
      * @NoArgsConstructor(access = PROTECTED) 우회를 위해
      * 공개 생성자 Product(name, category, price, description)를 사용합니다.
      */
-    private Product buildProduct(Long id, String name, String categoryName,
+     private Product buildProduct(Long id, String name, String categoryName,
                                  BigDecimal price, String description) {
         Category category = null;
         if (categoryName != null) {
             category = new Category(categoryName);
-            ReflectionTestUtils.setField(category, "id", 10L);
+            category.setId(10L);
         }
+
         Product product = new Product(name, category, price, description);
-        ReflectionTestUtils.setField(product, "id", id);
+        product.setId(id);
         return product;
     }
 
