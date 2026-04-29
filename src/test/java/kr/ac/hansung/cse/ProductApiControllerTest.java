@@ -2,6 +2,7 @@ package kr.ac.hansung.cse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.ac.hansung.cse.controller.ProductController;
+import kr.ac.hansung.cse.dto.ProductResponse;
 import kr.ac.hansung.cse.exception.GlobalExceptionHandler;
 import kr.ac.hansung.cse.exception.ProductNotFoundException;
 import kr.ac.hansung.cse.model.Category;
@@ -93,6 +94,15 @@ class ProductApiControllerTest {
     }
 
     /**
+     * ProductResponse 생성 헬퍼 (서비스 mock 반환값용)
+     */
+    private ProductResponse buildResponse(Long id, String name, String categoryName,
+                                          BigDecimal price, String description) {
+        Product product = buildProduct(id, name, categoryName, price, description);
+        return ProductResponse.from(product);
+    }
+
+    /**
      * 요청 바디로 사용할 ProductForm DTO 생성 헬퍼
      */
     private ProductForm buildForm(String name, String category, BigDecimal price, String description) {
@@ -116,9 +126,9 @@ class ProductApiControllerTest {
         @DisplayName("성공: 상품 2개 반환")
         void success_returnsTwoProducts() throws Exception {
             // given
-            Product p1 = buildProduct(1L, "노트북", "전자제품", new BigDecimal("1500000"), "가성비 노트북");
-            Product p2 = buildProduct(2L, "마우스", "전자제품", new BigDecimal("50000"), "무선 마우스");
-            when(productService.getAllProducts()).thenReturn(List.of(p1, p2));
+            ProductResponse r1 = buildResponse(1L, "노트북", "전자제품", new BigDecimal("1500000"), "가성비 노트북");
+            ProductResponse r2 = buildResponse(2L, "마우스", "전자제품", new BigDecimal("50000"), "무선 마우스");
+            when(productService.getAllProducts()).thenReturn(List.of(r1, r2));
 
             // when & then
             mockMvc.perform(get("/api/products")
@@ -139,7 +149,7 @@ class ProductApiControllerTest {
         @DisplayName("성공: 빈 목록 반환")
         void success_returnsEmptyList() throws Exception {
             // given
-            when(productService.getAllProducts()).thenReturn(List.of());
+            when(productService.getAllProducts()).thenReturn(List.<ProductResponse>of());
 
             // when & then
             mockMvc.perform(get("/api/products")
@@ -162,9 +172,9 @@ class ProductApiControllerTest {
         @DisplayName("성공: 상품 정보 반환")
         void success_returnsProduct() throws Exception {
             // given
-            Product product = buildProduct(1L, "노트북", "전자제품",
+            ProductResponse response = buildResponse(1L, "노트북", "전자제품",
                     new BigDecimal("1500000"), "가성비 노트북");
-            when(productService.getProductById(1L)).thenReturn(Optional.of(product));
+            when(productService.getProductById(1L)).thenReturn(Optional.of(response));
 
             // when & then
             mockMvc.perform(get("/api/products/1")
@@ -199,8 +209,8 @@ class ProductApiControllerTest {
         @DisplayName("성공: 카테고리 없는 상품 (category = null)")
         void success_productWithoutCategory() throws Exception {
             // given
-            Product product = buildProduct(2L, "기타 상품", null, new BigDecimal("10000"), "설명 없음");
-            when(productService.getProductById(2L)).thenReturn(Optional.of(product));
+            ProductResponse response = buildResponse(2L, "기타 상품", null, new BigDecimal("10000"), "설명 없음");
+            when(productService.getProductById(2L)).thenReturn(Optional.of(response));
 
             // when & then
             mockMvc.perform(get("/api/products/2")
@@ -224,13 +234,11 @@ class ProductApiControllerTest {
             // given
             ProductForm form = buildForm("노트북", "전자제품",
                     new BigDecimal("1500000"), "가성비 노트북");
-            Product savedProduct = buildProduct(1L, "노트북", "전자제품",
+            ProductResponse savedResponse = buildResponse(1L, "노트북", "전자제품",
                     new BigDecimal("1500000"), "가성비 노트북");
 
-            when(productService.resolveCategory("전자제품"))
-                    .thenReturn(new Category("전자제품"));
-            when(productService.createProduct(any(Product.class)))
-                    .thenReturn(savedProduct);
+            when(productService.createProduct(any(ProductForm.class)))
+                    .thenReturn(savedResponse);
 
             // when & then
             mockMvc.perform(post("/api/products")
@@ -330,11 +338,11 @@ class ProductApiControllerTest {
             ProductForm form = buildForm("노트북 Pro", "전자제품",
                     new BigDecimal("2000000"), "업그레이드된 노트북");
 
-            Product updatedProduct = buildProduct(1L, "노트북 Pro", "전자제품",
+            ProductResponse updatedResponse = buildResponse(1L, "노트북 Pro", "전자제품",
                     new BigDecimal("2000000"), "업그레이드된 노트북");
 
             when(productService.updateProduct(eq(1L), any(ProductForm.class)))
-                    .thenReturn(updatedProduct);
+                    .thenReturn(updatedResponse);
 
             // when & then
             mockMvc.perform(put("/api/products/1")
@@ -396,9 +404,9 @@ class ProductApiControllerTest {
         @DisplayName("성공: 삭제 확인 메시지 반환")
         void success_returnsSuccessMessage() throws Exception {
             // given
-            Product product = buildProduct(1L, "노트북", "전자제품",
+            ProductResponse response = buildResponse(1L, "노트북", "전자제품",
                     new BigDecimal("1500000"), "설명");
-            when(productService.getProductById(1L)).thenReturn(Optional.of(product));
+            when(productService.getProductById(1L)).thenReturn(Optional.of(response));
             doNothing().when(productService).deleteProduct(1L);
 
             // when & then

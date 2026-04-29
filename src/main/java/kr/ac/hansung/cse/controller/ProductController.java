@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import kr.ac.hansung.cse.dto.ApiResponse;
 import kr.ac.hansung.cse.dto.ProductResponse;
 import kr.ac.hansung.cse.exception.ProductNotFoundException;
-import kr.ac.hansung.cse.model.Product;
 import kr.ac.hansung.cse.model.ProductForm;
 import kr.ac.hansung.cse.service.ProductService;
 import org.springframework.http.HttpStatus;
@@ -53,9 +52,7 @@ public class ProductController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProductResponse>>> listProducts() {
-        List<ProductResponse> products = productService.getAllProducts().stream()
-                .map(ProductResponse::from)
-                .toList();
+        List<ProductResponse> products = productService.getAllProducts();
         return ResponseEntity.ok(ApiResponse.success(products));
     }
 
@@ -69,9 +66,9 @@ public class ProductController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductResponse>> getProduct(@PathVariable Long id) {
-        Product product = productService.getProductById(id)
+        ProductResponse product = productService.getProductById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
-        return ResponseEntity.ok(ApiResponse.success(ProductResponse.from(product)));
+        return ResponseEntity.ok(ApiResponse.success(product));
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -90,12 +87,10 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
             @Valid @RequestBody ProductForm productForm) {
 
-        Product product = productForm.toEntity();
-        product.setCategory(productService.resolveCategory(productForm.getCategory()));
-        Product savedProduct = productService.createProduct(product);
+        ProductResponse savedProduct = productService.createProduct(productForm);
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("상품이 등록되었습니다.", ProductResponse.from(savedProduct)));
+                .body(ApiResponse.success("상품이 등록되었습니다.", savedProduct));
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -115,10 +110,10 @@ public class ProductController {
             @PathVariable Long id,
             @Valid @RequestBody ProductForm productForm) {
 
-        Product updatedProduct = productService.updateProduct(id, productForm);
+        ProductResponse updatedProduct = productService.updateProduct(id, productForm);
 
         return ResponseEntity.ok(
-                ApiResponse.success("상품이 수정되었습니다.", ProductResponse.from(updatedProduct)));
+                ApiResponse.success("상품이 수정되었습니다.", updatedProduct));
     }
 
     // ─────────────────────────────────────────────────────────────────

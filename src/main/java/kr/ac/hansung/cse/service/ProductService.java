@@ -1,5 +1,6 @@
 package kr.ac.hansung.cse.service;
 
+import kr.ac.hansung.cse.dto.ProductResponse;
 import kr.ac.hansung.cse.exception.ProductNotFoundException;
 import kr.ac.hansung.cse.model.Category;
 import kr.ac.hansung.cse.model.Product;
@@ -74,65 +75,52 @@ public class ProductService {
     }
 
     /**
-     * 모든 상품 조회
-     * readOnly = true (클래스 레벨 설정 상속): 읽기 전용 트랜잭션
+     * 모든 상품 조회 - 트랜잭션 안에서 DTO로 변환하여 반환
+     * LAZY 연관관계(category 등) 접근이 트랜잭션 범위 내에서 이루어집니다.
      */
-    public List<Product> getAllProducts() {
-        return productRepository.findAll();
+    public List<ProductResponse> getAllProducts() {
+        return productRepository.findAll().stream()
+                .map(ProductResponse::from)
+                .toList();
     }
 
     /**
-     * ID로 상품 조회
-     * Optional을 그대로 반환하여 Controller가 null 처리를 명시적으로 하도록 강제합니다.
+     * ID로 상품 조회 - 트랜잭션 안에서 DTO로 변환하여 반환
      */
-    public Optional<Product> getProductById(Long id) {
-        return productRepository.findById(id);
+    public Optional<ProductResponse> getProductById(Long id) {
+        return productRepository.findById(id).map(ProductResponse::from);
     }
 
     /**
      * 새 상품 등록
-     *
-     * @Transactional: readOnly 기본값을 false로 오버라이드합니다.
-     *                 쓰기 작업에는 반드시 readOnly = false가 필요합니다.
-     *                 DB 변경 작업이 포함되므로 트랜잭션이 필수입니다.
-     *
-     * [비즈니스 규칙 예시]
-     * 실제 프로젝트에서는 이 위치에 비즈니스 규칙을 추가합니다:
-     *   - 가격이 0 이하이면 예외 발생
-     *   - 이미 존재하는 상품명이면 예외 발생
-     *   - 재고 관련 로직 처리 등
+     * ProductForm을 받아 서비스 내부에서 엔티티 변환 및 category resolve를 처리합니다.
+     * 모든 LAZY 필드 접근이 동일한 트랜잭션 안에서 이루어집니다.
      */
-    @Transactional // readOnly = false (쓰기 가능)
-    public Product createProduct(Product product) {
-        // 비즈니스 유효성 검사 예시
+    @Transactional
+    public ProductResponse createProduct(ProductForm productForm) {
+        Product product = productForm.toEntity();
+        product.setCategory(resolveCategory(productForm.getCategory()));
         if (product.getPrice() != null && product.getPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("상품 가격은 0 이상이어야 합니다.");
         }
-        return productRepository.save(product);
+        return ProductResponse.from(productRepository.save(product));
     }
 
     /**
-     * 상품 수정
-     *
-     * 서비스 레이어에서도 가격을 검증합니다.
-     * 웹 레이어(Bean Validation)와 서비스 레이어 양쪽에서 검증하는 이유:
-     *   - 방어적 프로그래밍(Defense in Depth): 웹 계층을 우회하는 API 호출이나
-     *     테스트 코드에서도 비즈니스 규칙이 항상 보장됩니다.
-     *   - 서비스는 "어떤 클라이언트(웹/API/배치 등)가 호출해도" 유효성을 보장해야 합니다.
+     * 상품 수정 - 트랜잭션 안에서 수정 후 DTO로 변환하여 반환
+     * category resolve와 DTO 변환이 모두 같은 트랜잭션 안에서 이루어집니다.
      */
-    // ProductService.java
     @Transactional
-    public Product updateProduct(Long id, ProductForm productForm) {
+    public ProductResponse updateProduct(Long id, ProductForm productForm) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
 
         product.setName(productForm.getName());
-        product.setCategory(resolveCategory(productForm.getCategory())); // 같은 트랜잭션 안
+        product.setCategory(resolveCategory(productForm.getCategory()));
         product.setPrice(productForm.getPrice());
         product.setDescription(productForm.getDescription());
 
-        return productRepository.update(product);
-        // 트랜잭션 종료 전에 category가 이미 초기화된 상태
+        return ProductResponse.from(productRepository.update(product));
     }
 
     /**
